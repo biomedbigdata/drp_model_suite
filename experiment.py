@@ -168,5 +168,5 @@ drug_ids = response_data["DRUG_NAME"].values
 response_data = DrugResponseDataset(
     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
 )
-result = drug_response_experiment(models, response_data, multiprocessing=False)
+result = drug_response_experiment(models, response_data, multiprocessing=True)
 print(result)
