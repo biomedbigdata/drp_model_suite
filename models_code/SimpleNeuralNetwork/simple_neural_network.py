@@ -154,3 +154,12 @@ class SimpleNeuralNetwork(DRPModel):
                 for drug in fingerprints.index
             }
         )
+
+    def get_hyperparameter_set(self):
+        hpams = [
+            {"dropout_prob": 0.2, "units_per_layer": [10, 10, 10]},
+            {"dropout_prob": 0.3, "units_per_layer": [20, 10, 10]},
+        ]
+        for hpam in hpams:
+            hpam["feature_path"] = "data/GDSC"
+        return hpams

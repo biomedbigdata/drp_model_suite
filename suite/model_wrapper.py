@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 from .data_wrapper import DrugResponseDataset, FeatureDataset
 import numpy as np
 
@@ -20,6 +21,13 @@ class DRPModel(ABC):
         self.target = target
         self.config_path = config_path
         self.build_model(*args, **kwargs)
+
+    @abstractmethod
+    def get_hyperparameter_set(self) -> List[dict]:
+        """
+        :return: hyperparameter set list of dicts
+        """
+        pass
 
     @property
     @abstractmethod
