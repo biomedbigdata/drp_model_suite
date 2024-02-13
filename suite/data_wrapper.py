@@ -216,6 +216,12 @@ class FeatureDataset(Dataset):
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
 
+    def load(self):
+        """
+        loads the feature dataset from data.
+        """
+        raise NotImplementedError("save method not implemented")
+
     def save(self):
         """
         Saves the feature dataset to data.

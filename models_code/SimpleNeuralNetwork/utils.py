@@ -59,7 +59,7 @@ class FeedForwardNetwork(pl.LightningModule):
 
         train_dataset = RegressionDataset(X_train, y_train)
         train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
+            train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, persistent_workers=True
         )
 
         if (X_eval is not None) and (y_eval is not None):
