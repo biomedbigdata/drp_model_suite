@@ -29,6 +29,25 @@ def create_cl_dict(df):
                 cellosaurus_sy_dict[cell_line_name] = row['AC']
     return cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict
 
+def create_cl_dict_cell_passp(df):
+    # iterate over cellosaurus and make a dictionary mapping the 'ID' column to the 'SID' IDs from the DR column if
+    # it contains Cell_Model_Passport
+    print('Creating cellosaurus dictionary ...')
+    cellosaurus_sid_dict = {}
+    species_dict = {}
+    for index, row in df.iterrows():
+        # add species to species_dict
+        species_dict[row['AC']] = row['OX']
+        # check whether the DR column contains Cell_Model_Passport
+        if 'Cell_Model_Passport' in row['DR']:
+            # split DR column by ',', iterate until you encounter an ID starting with SIDM
+            for element in row['DR'].split(','):
+                if element.startswith('SIDM'):
+                    cellosaurus_sid_dict[element] = row['AC']
+        else:
+            continue
+    return cellosaurus_sid_dict, species_dict
+
 
 def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
     # iterate over the cell line names in the dataframe. Try to get the cell line name from the cellosaurus
@@ -69,6 +88,34 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
     print('Saving dataframe with cellosaurus IDs ...')
     # make index to column 'cell_line_name' and make 'cellosaurus_id' the index
     df = df.reset_index().rename(columns={'index': 'cell_line_name'}).set_index('cellosaurus_id')
+    df.to_csv(output_path)
+
+def map_to_cellosaurus_model_passp(df, cl_dict_sid, species_dict, output_path, ignore_columns = []):
+    # iterate over the cell line names in the dataframe. Try to get the cell line name from the cellosaurus
+    # dictionary. If it exists, put it in a column called 'cellosaurus_id'. If it doesn't exist, print the cell line
+    # name
+    print('Mapping cell line names to cellosaurus IDs ...')
+    # get all column names except the ones in ignore_columns
+    columns = [col for col in df.columns if col not in ignore_columns]
+    new_columns = list(df.columns.values)
+    for cl_name in columns:
+        try:
+            new_columns[new_columns.index(cl_name)] = cl_dict_sid[cl_name]
+            matched_cell_lines[cl_name] = cl_dict_sid[cl_name]
+            species = species_dict.get(cl_dict_sid[cl_name])
+            # if 'Human' is not part of species string, warn
+            if 'Human' not in species:
+                warnings.warn(f'Cell line {cl_dict_sid[cl_name]} matched to {cl_name} is not human, but {species}.')
+        except KeyError:
+            print(f'no match at all for {cl_name}')
+            no_match.add(cl_name)
+
+    # rename columns
+    df.columns = new_columns
+    # save the gene expression dataframe with the cellosaurus IDs
+    print('Saving dataframe with cellosaurus IDs ...')
+    # make first column index
+    df = df.set_index(new_columns[0])
     df.to_csv(output_path)
 
 
@@ -323,6 +370,26 @@ def preprocess_gdsc_2():
     return drp
 
 
+def preprocess_sanger_ccle(tpm=True):
+    # read in gene expression dataframe
+    print('Preprocessing gene expression dataframe ...')
+    if tpm:
+        gex = pd.read_csv('cell_line_input/SangerCellModelPassports/sanger_tpm_ccle.csv', sep=',')
+    else:
+        gex = pd.read_csv('cell_line_input/SangerCellModelPassports/sanger_counts_ccle.csv', sep=',')
+    return gex
+
+
+def preprocess_sanger_sanger(tpm=True):
+    # read in gene expression dataframe
+    print('Preprocessing gene expression dataframe ...')
+    if tpm:
+        gex = pd.read_csv('cell_line_input/SangerCellModelPassports/sanger_tpm_sanger.csv', sep=',')
+    else:
+        gex = pd.read_csv('cell_line_input/SangerCellModelPassports/sanger_counts_sanger.csv', sep=',')
+    return gex
+
+
 if __name__ == '__main__':
     cellosaurus = pd.read_csv('mapping/cellosaurus_01_2024.csv')
     # replace all NaN values with empty strings
@@ -368,3 +435,23 @@ if __name__ == '__main__':
     # export renamed cell lines to csv file
     renamed_cell_lines_df = pd.DataFrame.from_dict(renamed_cell_lines, orient='index', columns=['cell_line_name'])
     renamed_cell_lines_df.to_csv('mapping/renamed_cell_lines.csv')
+
+    cellosaurus_sid_dict, species_dict = create_cl_dict_cell_passp(cellosaurus)
+    gex = preprocess_sanger_sanger(tpm=True)
+    map_to_cellosaurus_model_passp(gex, cellosaurus_sid_dict, species_dict,
+                                   'cell_line_input/SangerCellModelPassports/sanger_tpm_sanger_cvcl.csv',
+                                   ignore_columns=['ensembl_gene_id', 'gene_symbol'])
+    gex = preprocess_sanger_ccle(tpm=True)
+    map_to_cellosaurus_model_passp(gex, cellosaurus_sid_dict, species_dict,
+                                   'cell_line_input/SangerCellModelPassports/sanger_tpm_ccle_cvcl.csv',
+                                   ignore_columns=['ensembl_gene_id', 'gene_symbol'])
+
+    gex = preprocess_sanger_sanger(tpm=False)
+    map_to_cellosaurus_model_passp(gex, cellosaurus_sid_dict, species_dict,
+                                   'cell_line_input/SangerCellModelPassports/sanger_counts_sanger_cvcl.csv',
+                                   ignore_columns=['ensembl_gene_id', 'gene_symbol'])
+    gex = preprocess_sanger_ccle(tpm=False)
+    map_to_cellosaurus_model_passp(gex, cellosaurus_sid_dict, species_dict,
+                                   'cell_line_input/SangerCellModelPassports/sanger_counts_ccle_cvcl.csv',
+                                   ignore_columns=['ensembl_gene_id', 'gene_symbol'])
+

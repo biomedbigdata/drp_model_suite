@@ -1,4 +1,4 @@
-from .data_wrapper import DrugResponseDataset
+from .dataset import DrugResponseDataset
 from typing import Union, List
 import numpy as np
 import sklearn.metrics as metrics

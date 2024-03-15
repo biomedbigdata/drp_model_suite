@@ -1,9 +1,10 @@
 from typing import Optional
-from models_code.SimpleNeuralNetwork.utils import FeedForwardNetwork
-from suite.model_wrapper import DRPModel
-from suite.data_wrapper import DrugResponseDataset, FeatureDataset
+from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
+from suite.drp_model import DRPModel
+from suite.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd
+import warnings
 
 
 class SimpleNeuralNetwork(DRPModel):
@@ -17,6 +18,8 @@ class SimpleNeuralNetwork(DRPModel):
     cell_line_views = ["gene_expression"]
 
     drug_views = ["fingerprints"]
+
+    early_stopping = True
 
     def build_model(self, *args, **kwargs):
         """
@@ -43,8 +46,6 @@ class SimpleNeuralNetwork(DRPModel):
         drug_input: FeatureDataset,
         output: DrugResponseDataset,
         hyperparameters: dict,
-        cell_line_input_earlystopping: Optional[FeatureDataset] = None,
-        drug_input_earlystopping: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
@@ -60,15 +61,12 @@ class SimpleNeuralNetwork(DRPModel):
             drug_input=drug_input,
         )
 
-        if (
-            cell_line_input_earlystopping
-            and drug_input_earlystopping
-            and output_earlystopping
-        ):
+        if output_earlystopping:
             X_earlystopping = self.get_feature_matrix(
-                drug_input_earlystopping,
-                cell_line_input_earlystopping,
-                output_earlystopping,
+                cell_line_ids=output_earlystopping.cell_line_ids,
+                drug_ids=output_earlystopping.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
             )
         else:
             X_earlystopping = None
@@ -82,15 +80,21 @@ class SimpleNeuralNetwork(DRPModel):
             response_earlystopping = output_earlystopping.response
         else:
             response_earlystopping = None
-        neural_network.fit(
-            X,
-            output.response,
-            X_earlystopping,
-            response_earlystopping,
-            batch_size=64,
-            patience=5,
-            num_workers=2,
-        )
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*does not have many workers which may be a bottleneck.*",
+            )
+            neural_network.fit(
+                X,
+                output.response,
+                X_earlystopping,
+                response_earlystopping,
+                batch_size=16,
+                patience=5,
+                num_workers=0,
+            )
         self.model = neural_network
 
     def save(self, path: str):

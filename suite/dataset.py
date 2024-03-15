@@ -236,8 +236,8 @@ class FeatureDataset(Dataset):
         :views_to_randomize: name of feature view or list of names of multiple feature views to randomize. The other views are not randomized.
         :mode: randomization mode (permutation, gaussian, zeroing)
         """
-        if isinstance(views, str):
-            views = [views]
+        if isinstance(views_to_randomize, str):
+            views_to_randomize = [views_to_randomize]
 
         if mode == "permutation":
             # Get the entity names
@@ -246,9 +246,11 @@ class FeatureDataset(Dataset):
             # Permute the specified views for each entity (= cell line or drug)
             self.features = {
                 entity: {
-                    view: self.features[entity][view]
-                    if view not in views_to_randomize
-                    else self.features[other_entity][view]
+                    view: (
+                        self.features[entity][view]
+                        if view not in views_to_randomize
+                        else self.features[other_entity][view]
+                    )
                     for view, other_entity in zip(
                         self.features[entity].keys(), np.random.permutation(identifiers)
                     )
@@ -257,7 +259,7 @@ class FeatureDataset(Dataset):
             }
 
         elif mode == "gaussian":
-            for view in views:
+            for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.random.normal(
                         self.features[identifier][view].mean(),
@@ -265,7 +267,7 @@ class FeatureDataset(Dataset):
                         self.features[identifier][view].shape,
                     )
         elif mode == "zeroing":
-            for view in views:
+            for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.zeros(
                         self.features[identifier][view].shape
@@ -324,3 +326,9 @@ class FeatureDataset(Dataset):
         ), f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the FeatureDataset. Missing ids: {missing_identifiers}"
 
         return np.stack([self.features[id_][view] for id_ in identifiers], axis=0)
+
+    def copy(self):
+        """
+        Returns a copy of the feature dataset.
+        """
+        return FeatureDataset(features=self.features.copy())

@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.callbacks import TQDMProgressBar
 from torch.utils.data import Dataset
+import random
 
 
 class RegressionDataset(Dataset):
@@ -55,7 +56,7 @@ class FeedForwardNetwork(pl.LightningModule):
         num_workers: int = 2,
     ) -> None:
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 10000}
+            trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
 
         train_dataset = RegressionDataset(X_train, y_train)
         train_loader = DataLoader(
@@ -77,8 +78,15 @@ class FeedForwardNetwork(pl.LightningModule):
         early_stop_callback = EarlyStopping(
             monitor=monitor, mode="min", patience=patience
         )
+        name = "version-" + "".join(
+            [random.choice("0123456789abcdef") for i in range(20)]
+        )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=checkpoint_path, monitor=monitor, mode="min", save_top_k=1
+            dirpath=checkpoint_path,
+            monitor=monitor,
+            mode="min",
+            save_top_k=1,
+            filename=name,
         )
 
         progress_bar = TQDMProgressBar(
@@ -90,6 +98,9 @@ class FeedForwardNetwork(pl.LightningModule):
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],
+            default_root_dir=os.path.join(
+                os.getcwd(), "model_checkpoints/lightning_logs/" + name
+            ),
             **trainer_params_copy
         )
         if (X_eval is None) or (y_eval is None):
